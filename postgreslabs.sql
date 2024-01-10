@@ -208,16 +208,18 @@ WHERE (rating, city) IN (
 --имеющих в своих городах заказчиков, которых они не обслуживают.
 --1) Один запрос - с использованием объединения,
 SELECT DISTINCT s.snum, s.sname FROM db.sellers s, db.clients c
-WHERE s.city = c.city AND c.snum != s.snum;
+WHERE s.city = c.city AND c.snum != s.snum ORDER BY snum;
+
 
 --2) а другой - с соотнесённым подзапросом. Которое из решений будет более изящным?
 SELECT DISTINCT s.snum, s.sname
 FROM db.sellers s
-WHERE EXISTS(
-    SELECT 1
+WHERE s.snum != ANY (
+    SELECT c.snum
     FROM db.clients c
-    WHERE s.city = c.city AND c.snum != s.snum
-);
+    WHERE s.city = c.city
+) ORDER BY snum;
+
 
 --6.1 Напишите запрос, который использовал бы оператор EXISTS для извлечения всех продавцов,
 --имеющих заказчиков с оценкой 300.
@@ -225,3 +227,62 @@ SELECT snum, sname FROM db.sellers s
 WHERE EXISTS(
     SELECT 1 FROM db.clients c WHERE c.rating = 300 AND c.snum = s.snum
 );
+
+
+--6.2 Как бы вы решили предыдущую проблему, используя объединение?
+SELECT s.snum, s.sname FROM db.sellers s, db.clients c
+WHERE c.rating = 300 AND c.snum = s.snum;
+
+
+--6.3 Напишите запрос, использующий оператор EXISTS, который выберет
+--всех продавцов с заказчиками, размещёнными в их городах, которые ими не обслуживаются.
+SELECT DISTINCT s.snum, s.sname
+FROM db.sellers s
+WHERE EXISTS (
+    SELECT 1
+    FROM db.clients c
+    WHERE s.city = c.city AND c.snum != s.snum
+);
+
+
+--6.4 Напишите запрос, который извлекал бы из таблицы Заказчиков каждого заказчика,
+--назначенного продавцу, который в данный момент имеет по крайней мере ещё одного заказчика
+--(кроме заказчика, которого вы выберете) с заказами в таблице Заказов
+--(подсказка: это может быть похоже на структуру в примере с нашим трехуровневым подзапросом).
+SELECT cname, cnum FROM db.clients c
+WHERE EXISTS(
+    SELECT cname FROM db.clients cl
+    WHERE c.snum = cl.snum AND c.cnum != cl.cnum AND
+    EXISTS(
+        SELECT onum FROM db.orders o
+        WHERE cl.cnum = o.cnum
+    )
+);
+
+
+--6.5 Напишите запрос, который выбирал бы всех заказчиков, чьи оценки равны или больше,
+--чем любая (ANY) оценка заказчика Serres. // я не сравнивал оценки покупателей Serres
+--с оценками покупателей Serres, потому что зачем? Понятно же, что их рейтинг
+--будет >= их же рейтинга
+SELECT c.cnum, c.cname, c.rating FROM db.clients c, db.sellers s
+WHERE c.snum = s.snum AND s.sname != 'Serres'
+AND c.rating >= ANY(
+    SELECT cl.rating FROM db.clients cl, db.sellers s
+    WHERE cl.snum = s.snum AND s.sname = 'Serres'
+);
+
+
+--6.6 Что будет выведено вышеупомянутой командой? // А команды-то нет:(
+
+
+--6.7Напишите запрос, использующий ANY или ALL, который находил бы всех продавцов,
+--которые не имеют никаких заказчиков, живущих в их городе.
+SELECT s.snum, s.sname, s.city FROM db.sellers s
+WHERE s.snum != ALL(
+    SELECT c.snum FROM db.clients c
+    WHERE c.city = s.city
+);
+
+
+--6.8  Напишите запрос, который выбирал бы все заказы с суммой, больше, чем любая
+--(в обычном смысле) для заказчиков в Лондоне.
